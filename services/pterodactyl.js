@@ -15,9 +15,11 @@ class PterodactylService {
 
   async createServer(userId, name, ram, disk, cpu) {
     try {
+      // Use configured user ID if not provided
+      const finalUserId = userId || config.pterodactyl.userId || 1;
       const response = await this.client.post('/servers', {
         name: name,
-        user: userId,
+        user: finalUserId,
         egg: 15, // Default egg, should be configurable
         docker_image: 'ghcr.io/pterodactyl/yolks:debian',
         startup: 'java -Xms128M -Xmx{{SERVER_MEMORY}}M -jar {{SERVER_JARFILE}}',

@@ -74,6 +74,24 @@ bot.hears('🚀 Sosmed (Fayupedia)', (ctx) => {
 bot.on('callback_query', async (ctx) => {
   const data = ctx.callbackQuery.data;
 
+  if (data === 'do_info') {
+    ctx.answerCbQuery();
+    try {
+      const regions = await doApi.getRegions();
+      const sizes = await doApi.getSizes();
+      const regionNames = regions.slice(0, 5).map(r => r.slug).join(', ');
+      const sizeNames = sizes.slice(0, 5).map(s => s.slug).join(', ');
+      ctx.reply(`🌐 Region: ${regionNames}...\n💾 Size: ${sizeNames}...`);
+    } catch (err) {
+      ctx.reply('❌ Gagal mengambil info DigitalOcean. Cek API Key di config.js');
+    }
+  }
+
+  if (data === 'do_buy') {
+    ctx.answerCbQuery();
+    ctx.reply('Layanan Beli VPS DO sedang dalam pengembangan. Silakan hubungi admin.');
+  }
+
   if (data.startsWith('ptero_')) {
     const ramStr = data.split('_')[1]; // e.g., 1gb
     const prices = { '1gb': 5000, '2gb': 10000, '4gb': 20000 };
@@ -83,8 +101,8 @@ bot.on('callback_query', async (ctx) => {
       ctx.answerCbQuery(`Memproses pesanan Pterodactyl ${ramStr}...`);
       try {
         const ramMb = parseInt(ramStr) * 1024;
-        // Mocking user ID 1 and disk/cpu
-        const server = await ptero.createServer(1, `Server-${ctx.from.id}`, ramMb, 5120, 100);
+        // Ptero user ID from config or fallback
+        const server = await ptero.createServer(null, `Server-${ctx.from.id}`, ramMb, 5120, 100);
         ctx.reply(`✅ Server Berhasil Dibuat!\nID: ${server.attributes.id}\nNama: ${server.attributes.name}`);
       } catch (err) {
         db.addBalance(ctx.from.id, price); // Refund
@@ -156,7 +174,7 @@ bot.hears('💰 Saldo & Profil', (ctx) => {
 });
 
 bot.action('deposit_req', (ctx) => {
-  ctx.reply('Silakan kirim bukti transfer ke Admin @' + (process.env.ADMIN_USERNAME || 'admin_username') + ' untuk pengisian saldo.');
+  ctx.reply('Silakan kirim bukti transfer ke Admin @' + (config.adminUsername || 'admin_username') + ' untuk pengisian saldo.');
 });
 
 // Admin commands to add balance (Only for ADMIN_ID)

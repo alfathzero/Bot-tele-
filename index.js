@@ -1,4 +1,5 @@
 const { Telegraf, Markup } = require('telegraf');
+const os = require('os');
 const config = require('./config');
 const ptero = require('./services/pterodactyl');
 const doApi = require('./services/digitalocean');
@@ -247,6 +248,37 @@ bot.command('dep_atlantik', async (ctx) => {
   if (!amount) return ctx.reply('Sertakan nominal! /dep_atlantik [jumlah]');
   ctx.reply(`Instruksi deposit Atlantik H2H senilai ${amount} akan dikirimkan oleh admin.`);
   // Placeholder logic for Atlantik
+});
+
+bot.command('ping', (ctx) => {
+  const start = Date.now();
+  ctx.reply('Pinging...').then((sent) => {
+    const end = Date.now();
+    ctx.telegram.editMessageText(ctx.chat.id, sent.message_id, undefined, `🏓 Pong! Latency: ${end - start}ms`);
+  });
+});
+
+bot.command('runtime', (ctx) => {
+  const uptimeSeconds = os.uptime();
+  const hours = Math.floor(uptimeSeconds / 3600);
+  const minutes = Math.floor((uptimeSeconds % 3600) / 60);
+  const seconds = Math.floor(uptimeSeconds % 60);
+
+  const totalMem = (os.totalmem() / (1024 * 1024 * 1024)).toFixed(2);
+  const freeMem = (os.freemem() / (1024 * 1024 * 1024)).toFixed(2);
+  const usedMem = (totalMem - freeMem).toFixed(2);
+
+  const cpuModel = os.cpus()[0].model;
+  const cpuCores = os.cpus().length;
+
+  const msg = `💻 *VPS Runtime Specifications*
+
+🚀 *Uptime:* ${hours}h ${minutes}m ${seconds}s
+💾 *Memory:* ${usedMem}GB / ${totalMem}GB
+⚙️ *CPU:* ${cpuModel} (${cpuCores} Cores)
+🌐 *OS:* ${os.type()} ${os.release()} ${os.arch()}
+`;
+  ctx.replyWithMarkdown(msg);
 });
 
 // Admin commands to add balance (Only for ADMIN_ID)

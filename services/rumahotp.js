@@ -26,6 +26,27 @@ class RumahOTPService {
     return response.data;
   }
 
+  async getCountriesV2(serviceId) {
+    const response = await axios.get(`${this.baseUrl}/countries/v2`, {
+      params: {
+        api_key: this.apiKey,
+        service: serviceId
+      }
+    });
+    return response.data;
+  }
+
+  async getOperatorsV2(countryId, serviceId) {
+    const response = await axios.get(`${this.baseUrl}/operators/v2`, {
+      params: {
+        api_key: this.apiKey,
+        country: countryId,
+        service: serviceId
+      }
+    });
+    return response.data;
+  }
+
   async createOrdersV2(serviceId, countryId, operatorId) {
     const response = await axios.get(`${this.baseUrl}/order/v2`, {
       params: {

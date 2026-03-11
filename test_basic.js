@@ -28,6 +28,8 @@ try {
   require('./services/rumahotp');
   require('./services/premku');
   require('./services/fayupedia');
+  require('./services/pakasir');
+  require('./services/atlantik');
   console.log('All services imported successfully!');
 } catch (error) {
   console.error('Service import failed:', error.message);

@@ -42,4 +42,15 @@ module.exports = {
     apiId: process.env.FAYUPEDIA_API_ID || 'YOUR_FAYUPEDIA_ID',
     apiKey: process.env.FAYUPEDIA_API_KEY || 'YOUR_FAYUPEDIA_KEY',
   },
+
+  // Pakasir Configuration
+  pakasir: {
+    apiKey: process.env.PAKASIR_API_KEY || 'YOUR_PAKASIR_API_KEY',
+  },
+
+  // Atlantik Configuration
+  atlantik: {
+    apiId: process.env.ATLANTIK_API_ID || 'YOUR_ATLANTIK_ID',
+    apiKey: process.env.ATLANTIK_API_KEY || 'YOUR_ATLANTIK_KEY',
+  },
 };

@@ -5,6 +5,8 @@ const doApi = require('./services/digitalocean');
 const rumahOtp = require('./services/rumahotp');
 const premku = require('./services/premku');
 const fayupedia = require('./services/fayupedia');
+const pakasir = require('./services/pakasir');
+const atlantik = require('./services/atlantik');
 const db = require('./database');
 
 if (!config.botToken) {
@@ -51,11 +53,15 @@ bot.hears('☁️ Digital Ocean VPS', (ctx) => {
 
 // RumahOTP Flow
 bot.hears('📱 RumahOTP (SMS)', async (ctx) => {
-  ctx.reply('Pilih layanan OTP:', Markup.inlineKeyboard([
-    [Markup.button.callback('WhatsApp', 'otp_wa')],
-    [Markup.button.callback('Telegram', 'otp_tg')],
-    [Markup.button.callback('Gojek/Grab', 'otp_ride')],
-  ]));
+  try {
+    const services = await rumahOtp.getServicesV2();
+    // Assuming services.data is an array of services
+    const serviceList = services.data || services;
+    const buttons = serviceList.slice(0, 10).map(s => [Markup.button.callback(s.name, `otp_svc_${s.id}`)]);
+    ctx.reply('Pilih layanan OTP:', Markup.inlineKeyboard(buttons));
+  } catch (err) {
+    ctx.reply('Gagal mengambil daftar layanan RumahOTP.');
+  }
 });
 
 // Premku Flow
@@ -113,9 +119,46 @@ bot.on('callback_query', async (ctx) => {
     }
   }
 
-  if (data.startsWith('otp_')) {
+  if (data.startsWith('otp_svc_')) {
+    const serviceId = data.split('_')[2];
     ctx.answerCbQuery();
-    ctx.reply('Layanan RumahOTP memerlukan pemilihan operator. Gunakan format manual atau hubungi admin.');
+    try {
+      const countries = await rumahOtp.getCountriesV2(serviceId);
+      const countryList = countries.data || countries;
+      const buttons = countryList.slice(0, 10).map(c => [Markup.button.callback(c.name, `otp_ctr_${serviceId}_${c.id}`)]);
+      ctx.reply('Pilih Negara:', Markup.inlineKeyboard(buttons));
+    } catch (err) {
+      ctx.reply('Gagal mengambil daftar negara.');
+    }
+  }
+
+  if (data.startsWith('otp_ctr_')) {
+    const [_, __, serviceId, countryId] = data.split('_');
+    ctx.answerCbQuery();
+    try {
+      const operators = await rumahOtp.getOperatorsV2(countryId, serviceId);
+      const operatorList = operators.data || operators;
+      const buttons = operatorList.map(o => [Markup.button.callback(`${o.name} - Rp ${o.price}`, `otp_buy_${serviceId}_${countryId}_${o.id}_${o.price}`)]);
+      ctx.reply('Pilih Operator:', Markup.inlineKeyboard(buttons));
+    } catch (err) {
+      ctx.reply('Gagal mengambil daftar operator.');
+    }
+  }
+
+  if (data.startsWith('otp_buy_')) {
+    const [_, __, serviceId, countryId, operatorId, price] = data.split('_');
+    if (db.deductBalance(ctx.from.id, parseInt(price))) {
+      ctx.answerCbQuery('Memesan nomor...');
+      try {
+        const order = await rumahOtp.createOrdersV2(serviceId, countryId, operatorId);
+        ctx.reply(`✅ Nomor berhasil dipesan!\nNomor: ${order.number || order.data?.number}\nID Order: ${order.id || order.data?.id}`);
+      } catch (err) {
+        db.addBalance(ctx.from.id, parseInt(price));
+        ctx.reply('❌ Gagal memesan nomor.');
+      }
+    } else {
+      ctx.answerCbQuery('Saldo tidak cukup!', { show_alert: true });
+    }
   }
 
   if (data.startsWith('premku_')) {
@@ -166,15 +209,44 @@ bot.command('suntik', async (ctx) => {
 bot.hears('💰 Saldo & Profil', (ctx) => {
   const user = db.getUser(ctx.from.id);
   ctx.reply(
-    `👤 Profil Anda\nID: ${ctx.from.id}\nUsername: @${ctx.from.username || '-'}\nSaldo: Rp ${user.balance}\n\nHubungi Admin untuk isi saldo.`,
+    `👤 Profil Anda\nID: ${ctx.from.id}\nUsername: @${ctx.from.username || '-'}\nSaldo: Rp ${user.balance}`,
     Markup.inlineKeyboard([
-      [Markup.button.callback('💳 Isi Saldo (Deposit)', 'deposit_req')]
+      [Markup.button.callback('💳 Deposit Pakasir', 'dep_pakasir'), Markup.button.callback('💳 Deposit Atlantik', 'dep_atlantik')],
+      [Markup.button.callback('👤 Hubungi Admin', 'deposit_req')]
     ])
   );
 });
 
 bot.action('deposit_req', (ctx) => {
   ctx.reply('Silakan kirim bukti transfer ke Admin @' + (config.adminUsername || 'admin_username') + ' untuk pengisian saldo.');
+});
+
+bot.action('dep_pakasir', (ctx) => {
+  ctx.reply('Kirim nominal deposit (Contoh: /dep_pakasir 10000)');
+});
+
+bot.action('dep_atlantik', (ctx) => {
+  ctx.reply('Deposit via Atlantik H2H silakan gunakan format: /dep_atlantik 10000');
+});
+
+bot.command('dep_pakasir', async (ctx) => {
+  const amount = ctx.message.text.split(' ')[1];
+  if (!amount) return ctx.reply('Sertakan nominal! /dep_pakasir [jumlah]');
+  try {
+    const res = await pakasir.createPayment('qris', `DEP-${ctx.from.id}-${Date.now()}`, parseInt(amount));
+    // Assuming res.data.payment_url exists
+    const url = res.payment_url || res.data?.payment_url;
+    ctx.reply(`Silakan selesaikan pembayaran Pakasir:\n${url}`);
+  } catch (err) {
+    ctx.reply('Gagal membuat transaksi Pakasir.');
+  }
+});
+
+bot.command('dep_atlantik', async (ctx) => {
+  const amount = ctx.message.text.split(' ')[1];
+  if (!amount) return ctx.reply('Sertakan nominal! /dep_atlantik [jumlah]');
+  ctx.reply(`Instruksi deposit Atlantik H2H senilai ${amount} akan dikirimkan oleh admin.`);
+  // Placeholder logic for Atlantik
 });
 
 // Admin commands to add balance (Only for ADMIN_ID)
